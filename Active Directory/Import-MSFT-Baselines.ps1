@@ -46,11 +46,11 @@ param (
 
     [Parameter(ValueFromPipeline)]
     [ValidateSet("Yes","No")]
-    $Cleanup="Yes"
+    $Cleanup="No"
 
 )
 
-
+##$Path="D:\Download\temp"
 #
 # Create Output folders, if not exists
 #
@@ -88,21 +88,12 @@ if ($Action -ne "Install") {
 
     # Get ZIP files to extract
     $Files = (Get-ChildItem -Path "$Path\ZIP\*")
-    foreach ($file in $Files) {
-        $DestinationFolder = $($file.Name -replace(".zip"))
-        $ZipFile = [IO.Compression.ZipFile]::OpenRead($file)
+    foreach ($File in $Files) {
+        $DestinationFolder = $($File.Name -replace(".zip"))
+        $ZipFile = [IO.Compression.ZipFile]::OpenRead($File.FullName)
 
-        $ZipFile.Entries | ? { $_.FullName -like "*/GPOs/{*"; } | `
-        ForEach-Object {
-            # Remove leading Directory from Path, if not GPO
-            $ZipBasePath = ($_.FullName -split("/"))[0]
-            if ($ZipBasePath -notlike "GPO*") {
-                $DestinationFile = $_.FullName -replace("$ZipBasePath/","")
-            } else {
-                $DestinationFile = $_.FullName
-            }
-            $OutFile = Join-Path $Path $(Join-Path $DestinationFolder $($DestinationFile -replace("/","\")))
-
+        $ZipFile.Entries | ? { $_.FullName -like "*{*}*" } | ForEach-Object {
+            $OutFile = Join-Path $Path $(Join-Path $DestinationFolder "{$(($_.FullName -split("{"))[1])")
             if (!(Test-Path -LiteralPath $(Split-Path $OutFile -Parent))) {
                 New-Item -Path $(Split-Path $OutFile -Parent) -ItemType Directory -Force | Out-Null
             }
@@ -136,7 +127,7 @@ if ($Action -ne "Download") {
     # Select Policy to import
     #
     Write-Verbose "List all avaliable policy files"
-    $GPOList = Get-ChildItem -Path $Path -Recurse | Where {$_.name -like "{*}"}
+    $GPOList = Get-ChildItem -Path $Path -Recurse -Directory -Filter "{*}"
     if ($GPOList.Length -eq 0) {
         Write-Error "Unable to find Policy to import"
         break
@@ -150,7 +141,7 @@ if ($Action -ne "Download") {
         }
 
     }
-    Write-Verbose "Show GPO list, please selct what to import"
+    Write-Verbose "Show GPO list, please select which GPOs to import"
     $Selected = $($GPOMap | Select-Object -Property "Name","Guid","Package" | Sort-Object -Descending -Property "Package" | Out-GridView -OutputMode Multiple -Title "Select Group Policy(s) to import")
     if ($Selected.Length -eq 0) {
         Write-Error "Please select which GPOs to import"
