@@ -1,6 +1,6 @@
 <#
     .DESCRIPTION
-    Download and import selected security baselines from Microsoft Security Compliance Toolkit
+    Create backup of DHCP scope and leases.
 
     .PARAMETER Path 
     Specifies where the backup file will be created.
