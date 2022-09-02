@@ -1,33 +1,40 @@
 <#
+    .NOTES
+        Name    : Import-MSFT-Baselines.ps1
+        Author  : Jan Kristensen (Truesec)
+
+        Version : 1.0
+        Date    : 01-08-2022
+
     .DESCRIPTION
-    Download and import selected security baselines from Microsoft Security Compliance Toolkit
+        Download and import selected security baselines from Microsoft Security Compliance Toolkit
 
     .PARAMETER DownloadID
-    Specifies the ID from Microsoft Download
-    - If Download ID have changed please find latest by searching for "Microsoft Security Compliance Toolkit"
-    - Curent URL = https://www.microsoft.com/en-us/download/details.aspx?id=55319
-    - Curent ID = 55319
+        Specifies the ID from Microsoft Download
+        - If Download ID have changed please find latest by searching for "Microsoft Security Compliance Toolkit"
+        - Curent URL = https://www.microsoft.com/en-us/download/details.aspx?id=55319
+        - Curent ID = 55319
 
     .PARAMETER Path 
-    Specifies where the dowloaded files will be saved, and extracted
+        Specifies where the dowloaded files will be saved, extracted and imported from
 
     .PARAMETER Action
-    Specifies which of the actions to preform.
-    Download - Only download and extract til GPO files, requires internet access.
-    Install - Only import the GPO files, requires the GPO folders to be avalible in Root of the Path, requires write access to Active Directory.
-    DownloadAndInstall - Does both of the above actions, requires internet access and write access to Active Directory.
+        Specifies which of the actions to preform.
+        1. Download - Only download and extract til GPO files, requires internet access.
+        2. Install - Only import the GPO files, requires the GPO folders to be avalible in Root of the Path, requires write access to Active Directory.
+        3. DownloadAndInstall - Does both of the above actions, requires internet access and write access to Active Directory.
 
     .PARAMETER Cleanup 
-    Specifies whether we remove the files when the script have run.
+        Specifies whether to remove the files after the script have run.
 
     .EXAMPLE
-    .\Import-MSFT-Baselines.ps1 -DownloadID 55319 -Path "C:\Windows\temp" -Action Download -Cleanup Yes
+        .\Import-MSFT-Baselines.ps1 -DownloadID 55319 -Path "C:\Windows\temp" -Action Download -Cleanup Yes
 
     .EXAMPLE
-    .\Import-MSFT-Baselines.ps1 -DownloadID 55319 -Path "C:\Windows\temp" -Action Install -Cleanup Yes
+        .\Import-MSFT-Baselines.ps1 -DownloadID 55319 -Path "C:\Windows\temp" -Action Install -Cleanup Yes
 
     .EXAMPLE
-    .\Import-MSFT-Baselines.ps1 -DownloadID 55319 -Path "C:\Windows\temp" -Action DownloadAndInstall -Cleanup Yes
+        .\Import-MSFT-Baselines.ps1 -DownloadID 55319 -Path "C:\Windows\temp" -Action DownloadAndInstall -Cleanup Yes
 
 #>
 # 
