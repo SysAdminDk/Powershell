@@ -1,6 +1,6 @@
 <#
     .DESCRIPTION
-    Export all computer objects to CSV file, for inventory and review.
+    Export all computer objects, with specific properties, to CSV file, for inventory and review.
 
 #>
 
