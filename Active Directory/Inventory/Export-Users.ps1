@@ -1,3 +1,9 @@
+<#
+    .DESCRIPTION
+    Export all user objects, with specific properties, to CSV file, for inventory and review.
+
+#>
+
 # --
 # Where to store the csv files.
 # --
