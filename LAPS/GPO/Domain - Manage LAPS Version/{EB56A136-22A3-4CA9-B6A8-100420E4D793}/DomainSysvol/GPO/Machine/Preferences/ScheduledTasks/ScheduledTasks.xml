@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ScheduledTasks clsid="{CC63F200-7309-4ba0-B154-A71CD118DBCC}">
+  <TaskV2 clsid="{D8896631-B747-47a7-84A6-C155337F3BC8}" name="Manage LAPS version" image="1" changed="2023-06-28 08:02:59" uid="{36357770-E886-4A1E-8E87-EC62809093E1}">
+    <Properties action="R" name="Manage LAPS version" runAs="NT AUTHORITY\System" logonType="S4U">
+      <Task version="1.2">
+        <RegistrationInfo>
+          <Author>PROD\TX-Admin</Author>
+          <Description>
+          </Description>
+        </RegistrationInfo>
+        <Principals>
+          <Principal id="Author">
+            <UserId>NT AUTHORITY\System</UserId>
+            <LogonType>S4U</LogonType>
+            <RunLevel>HighestAvailable</RunLevel>
+          </Principal>
+        </Principals>
+        <Settings>
+          <IdleSettings>
+            <Duration>PT10M</Duration>
+            <WaitTimeout>PT1H</WaitTimeout>
+            <StopOnIdleEnd>true</StopOnIdleEnd>
+            <RestartOnIdle>false</RestartOnIdle>
+          </IdleSettings>
+          <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+          <DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries>
+          <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+          <AllowHardTerminate>true</AllowHardTerminate>
+          <AllowStartOnDemand>true</AllowStartOnDemand>
+          <Enabled>true</Enabled>
+          <Hidden>false</Hidden>
+          <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+          <Priority>7</Priority>
+        </Settings>
+        <Triggers>
+          <BootTrigger>
+            <Enabled>true</Enabled>
+            <StartBoundary>2023-06-28T01:00:33</StartBoundary>
+          </BootTrigger>
+          <CalendarTrigger>
+            <StartBoundary>1970-01-01T12:00:00</StartBoundary>
+            <Enabled>true</Enabled>
+            <ScheduleByDay>
+              <DaysInterval>1</DaysInterval>
+            </ScheduleByDay>
+            <RandomDelay>PT30M</RandomDelay>
+          </CalendarTrigger>
+        </Triggers>
+        <Actions Context="Author">
+          <Exec>
+            <Command>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</Command>
+            <Arguments>-ExecutionPolicy ByPass -NonInteractive -NoLogo -File "\\Prod.SysAdmins.Dk\SYSVOL\Prod.SysAdmins.Dk\Policies\{4feabbe0-f8c1-4de8-9eda-ca2ceb838e26}\Machine\Scripts\Startup\Manage-Laps-Version.ps1"</Arguments>
+          </Exec>
+        </Actions>
+      </Task>
+    </Properties>
+  </TaskV2>
+</ScheduledTasks>
