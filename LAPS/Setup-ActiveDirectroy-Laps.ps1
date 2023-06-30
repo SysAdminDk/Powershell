@@ -70,15 +70,14 @@ Write-Output ""
 Write-Output "THE FOLLOWING POWERSHELL SCRIPT IS PROVIDED AS-IS, WITHOUT WARRANTY OF ANY KIND. USE AT YOUR OWN RISK."
 Write-Output ""
 Write-Output ""
-Write-Output "By running this script, you acknowledge that you have read and understood the disclaimer below, and you agree to"
-Write-Output "assume all responsibility for any failures, damages, or issues that may arise as a result of executing this script."
+Write-Output "By running this script, you acknowledge that you have read and understood the disclaimer, and you agree to assume"
+Write-Output "all responsibility for any failures, damages, or issues that may arise as a result of executing this script."
 Write-Output ""
 Write-Output ""
 Write-Output "Please note the following"
 Write-Output ""
 Write-Output "1. The script makes changes to the Active Directory Schema, which can have significant impacts on your environment."
 Write-Output "2. It is strongly recommended that you run this script in a test or lab environment before executing it in production."
-#Write-Output "   "
 Write-Output "3. Performing changes in production without proper testing can lead to data loss, service disruptions,"
 Write-Output "   or other unintended consequences."
 Write-Output ""
@@ -115,15 +114,19 @@ if (($host.ui.PromptForChoice($title, $message, $options, 0)) -eq 1) {
 # --------------------------------------------------------------------------------
 # Check the GPO prefix
 # --------------------------------------------------------------------------------
-Write-Output "Verify selected GPO prifix is valid"
+Write-Output "Prerequisites : Verify selected GPO prifix is valid"
 if ($GPOPrefix -Notmatch "^[a-zA-Z]+$") {
     throw "The GPO name prefix contains invalid characters, unable to continue"
 }
 
+
 # --------------------------------------------------------------------------------
 # Verify required files are avalible
 # --------------------------------------------------------------------------------
-Write-Output "Verify required GPO files are avalible"
+Write-Output "Prerequisites : Verify required GPO files are avalible"
+if ( (!(Test-Path -Path "$PSScriptRoot\GPO")) -AND (Test-Path -Path "$PSScriptRoot\GPO.zip") ) {
+    Expand-Archive -Path "$PSScriptRoot\GPO.zip" -DestinationPath $PSScriptRoot
+}
 if ( (!(Test-Path -Path "$PSScriptRoot\GPO")) -AND (((Get-ChildItem -Path $PSScriptRoot -Recurse).FullName).Count -ne 59) ) {
     Throw "Required files and folders missing, unable to continue"
 }
@@ -135,14 +138,14 @@ if (!(Test-Path -Path "$PSScriptRoot\GPO\Policy Dependencies\Manage-Laps-Version
 # --------------------------------------------------------------------------------
 # Read Registry for Installed Windows version
 # --------------------------------------------------------------------------------
-Write-Output "Get Windows version and Architecture"
+Write-Output "Prerequisites : Get Windows version and Architecture"
 $WindowsVersion = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
 
 
 # --------------------------------------------------------------------------------
 # Check for Windows version
 # --------------------------------------------------------------------------------
-Write-Output "Detect which version of LAPS current server can support"
+Write-Output "Prerequisites : Detect which version of LAPS current server can support"
 if ($WindowsVersion.CurrentMajorVersionNumber -ne "10") {
     throw "Not running on a supported Windows version, unable to continue"
 } else {
@@ -159,6 +162,7 @@ if ($WindowsVersion.CurrentMajorVersionNumber -ne "10") {
     }
 }
 
+
 # --------------------------------------------------------------------------------
 # Quit if April patch not installed or running on x86.
 # --------------------------------------------------------------------------------
@@ -170,7 +174,7 @@ if ( ($Laps -eq "Legacy") -AND ($($env:PROCESSOR_ARCHITECTURE) -ne "AMD64") ) {
 # --------------------------------------------------------------------------------
 # Connect to Domain and Make sure all AD commands use the PDC
 # --------------------------------------------------------------------------------
-Write-Output "Connecting to PDC, and setting default server for *AD* commands"
+Write-Output "Prerequisites : Connect to PDC, and setting default server for *AD* commands"
 $CurrentDomain = Get-ADDomain
 if ($($CurrentDomain.PDCEmulator) -eq $null) {
     throw "Failed to connect to Active Directory, unable to continue"
@@ -184,7 +188,7 @@ if ($($CurrentDomain.PDCEmulator) -eq $null) {
 # --------------------------------------------------------------------------------
 # Verify Current user is Domain User and member of Schema and Enterprise Admins.
 # --------------------------------------------------------------------------------
-Write-Output "Verify Current user is a member of Enterprise and Schema Admins"
+Write-Output "Prerequisites : Verify Current user is a member of Enterprise and Schema Admins"
 $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 try {
     $ADUser = Get-AdUser -Identity ($CurrentUser -split("\\"))[-1]
@@ -200,6 +204,7 @@ if (!(Get-ADGroupMember -Identity "Enterprise Admins" | Where {$_.distinguishedN
 if (!(Get-ADGroupMember -Identity "Schema Admins" | Where {$_.distinguishedName -eq $ADUser.DistinguishedName})) { 
     throw "User is NOT a member of Schema Admins, unable to continue"
 }
+
 
 # --------------------------------------------------------------------------------
 # Verify Domain Functional Level
@@ -223,28 +228,28 @@ If ($CurrentDomain.DomainMode -ne "Windows2016Domain") {
 # Download Legacy LAPS installation files.
 # --------------------------------------------------------------------------------
 if ($LAPSFiles) {
-    Write-Output "Not Download Laps Files : $LAPSFiles"
+    Write-Output "Main : Using supplied files : $LAPSFiles"
     if (!(Test-Path -Path "$LAPSFiles\LAPS.x64.msi")) {
         Throw "Missing the LAPS.x64.msi, unable to continue"
     }
     if (!(Test-Path -Path "$LAPSFiles\LAPS.x64.msi")) {
-        Write-Output "Missing the LAPS.x86.msi, please copy it to sysvol if there is x86 machines in the Company"
-        Write-Output "where you need to support Legacy LAPS"
+        Write-Warning "Main : Missing the LAPS.x86.msi, please copy it to sysvol if there is x86 machines in the Company where you need to support Legacy LAPS"
     }
 } else {
-    Write-Output "Download LAPS install files"
-    if (!(Test-Path -Path "$($env:windir)\temp\LAPS.x64.msi")) {
+    Write-Output "Main : Download LAPS install files"
+    $LapsFiles = "$($env:windir)\temp"
+    if (!(Test-Path -Path "$LapsFiles\LAPS.x64.msi")) {
         try {
-            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x64.msi" -OutFile "$($env:windir)\temp\LAPS.x64.msi"
+            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x64.msi" -OutFile "$LapsFiles\LAPS.x64.msi"
         } catch {
             Throw "Failed to download the LAPS.x64.msi, unable to continue"
         }
     }
-    if (!(Test-Path -Path "$($env:windir)\temp\LAPS.x86.msi")) {
+    if (!(Test-Path -Path "$LapsFiles\LAPS.x86.msi")) {
         try {
-            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x86.msi" -OutFile "$($env:windir)\temp\LAPS.x86.msi"
+            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x86.msi" -OutFile "$LapsFiles\LAPS.x86.msi"
         } catch {
-            Write-Output "Failed to download the LAPS.x86.msi, please copy it to sysvol if there is x86 machines in the Company where you need to support Legacy LAPS"
+            Write-Warning "Main : Failed to download the LAPS.x86.msi, please copy it to sysvol if there is x86 machines in the Company where you need to support Legacy LAPS"
         }
     }
 }
@@ -255,7 +260,7 @@ if ($LAPSFiles) {
 # --------------------------------------------------------------------------------
 $LegacyLAPS = Test-Path -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28}"
 if (!($LegacyLAPS)) {
-    Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/i `"$($env:windir)\temp\LAPS.x64.msi`" ADDLOCAL=Management.PS,Management.ADMX ALLUSERS=1 /qn /quiet" -Wait
+    Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/i `"$LapsFiles\LAPS.x64.msi`" ADDLOCAL=Management.PS,Management.ADMX ALLUSERS=1 /qn /quiet" -Wait
 }
 
 
@@ -265,7 +270,7 @@ if (!($LegacyLAPS)) {
 If ( ($LegacyLAPS) -AND (Test-Path -Path "$(($env:PSModulePath -split(";"))[-1])\admpwd.ps\AdmPwd.PS.dll") ) {
     Import-Module "$(($env:PSModulePath -split(";"))[-1])\admpwd.ps\AdmPwd.PS.dll"
 } else {
-    Write-Verbose "Legacy Laps is installed, but missing the Powershell Module, updating the install"
+    Write-Verbose "Main : Legacy Laps is installed, missing the Powershell Module (Update Install)"
     Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/i {97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28} ADDLOCAL=Management.PS /quiet" -Wait
 
     if (Test-Path -Path "$(($env:PSModulePath -split(";"))[-1])\admpwd.ps\AdmPwd.PS.dll") {
@@ -281,6 +286,7 @@ If ( ($LegacyLAPS) -AND (Test-Path -Path "$(($env:PSModulePath -split(";"))[-1])
 # --------------------------------------------------------------------------------
 $PolicyDefinitions = @("AdmPwd.admx","en-US\AdmPwd.adml")
 If (!(Test-Path -Path "C:\Windows\PolicyDefinitions\$($PolicyDefinitions[0])")) {
+    Write-Verbose "Main : Legacy Laps is installed, missing the Policy Definitions (Update Install)"
     Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/i {97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28} ADDLOCAL=Management.ADMX /quiet" -Wait
 }
 
@@ -296,9 +302,9 @@ if ($Laps -eq "Windows") {
 # --------------------------------------------------------------------------------
 # Copy selected Policy Definitions
 # --------------------------------------------------------------------------------
-Write-Verbose "Copy Local Policy Definitions SYSVOL"
+Write-Verbose "Main : Copy Local Policy Definitions SYSVOL"
 if (!(Test-Path "\\$($CurrentDomain.DNSRoot)\SYSVOL\$($CurrentDomain.DNSRoot)\Policies\PolicyDefinitions")) {
-    Write-Warning "Central Store for Group Policy Administrative Templates is missing, please create the central store and copy the Templates"
+    Write-Warning "Main : Central Store for Group Policy Administrative Templates is missing, please create the central store and copy the Templates"
 } else {
     Foreach ($File in $PolicyDefinitions) {
         $SourceFilePath = "C:\Windows\PolicyDefinitions\$File"
@@ -308,7 +314,7 @@ if (!(Test-Path "\\$($CurrentDomain.DNSRoot)\SYSVOL\$($CurrentDomain.DNSRoot)\Po
             Copy-Item -Path $SourceFilePath -Destination $TargetFilePath
         }
         if (!($TargetFilePath)) {
-            Write-Host "Unable to copy $File to SYSVOL" -ForegroundColor Red
+            Write-Warning "Main : Unable to copy $File to SYSVOL"
         }
     }
 }
@@ -318,10 +324,10 @@ if (!(Test-Path "\\$($CurrentDomain.DNSRoot)\SYSVOL\$($CurrentDomain.DNSRoot)\Po
 # Update AD Schema to hold Legacy LAPS properties
 # --------------------------------------------------------------------------------
 Try {
-    Write-Verbose "Check Legacy LAPS schema properties"
+    Write-Verbose "Main : Check Legacy LAPS schema properties"
     $msmcsadmpwd = Get-AdObject -Identity "CN=ms-mcs-admpwd,CN=Schema,$($CurrentDomain.SubordinateReferences | Where {$_ -like '*Config*'})"
 } Catch {
-    Write-Verbose "Updating Schema to suport Legacy LAPS"
+    Write-Verbose "Main : Updating Schema to suport Legacy LAPS"
     Update-AdmPwdADSchema
 }
 
@@ -330,10 +336,10 @@ Try {
 # Update AD Schema to hold Windows LAPS properties
 # --------------------------------------------------------------------------------
 Try {
-    Write-Verbose "Check Windows LAPS schema properties"
+    Write-Verbose "Main : Check Windows LAPS schema properties"
     $msLAPSPassword = Get-AdObject -Identity "CN=ms-LAPS-Password,CN=Schema,$($CurrentDomain.SubordinateReferences | Where {$_ -like '*Config*'})"
 } Catch {
-    Write-Verbose "Updating Schema to suport Windows LAPS"
+    Write-Verbose "Main : Updating Schema to suport Windows LAPS"
     Update-LapsADSchema -Confirm:$false
 }
 
@@ -348,7 +354,6 @@ $WMIFilters += "Detect Windows LAPS; Select * From CIM_Datafile Where Name = `"C
 # Build the date field in required format
 $now = (Get-Date).ToUniversalTime()
 $msWMICreationDate = ($now.Year).ToString("0000") + ($now.Month).ToString("00") + ($now.Day).ToString("00") + ($now.Hour).ToString("00") + ($now.Minute).ToString("00") + ($now.Second).ToString("00") + "." + ($now.Millisecond * 1000).ToString("000000") + "-000"
-
 
 # Create WMI filters
 foreach ($Line in $WMIFilters) {
@@ -371,6 +376,7 @@ foreach ($Line in $WMIFilters) {
         }
 
     if (!(Get-ADObject -Filter { msWMI-Name -eq $Name })) {
+        Write-Output "Main : Create WMI filter $Name"
         New-ADObject -name $NewWMIGUID -type "msWMI-Som" -Path "CN=SOM,CN=WMIPolicy,CN=System,$($CurrentDomain.DistinguishedName)" -OtherAttributes $Attr | Out-Null
     }
 }
@@ -385,6 +391,7 @@ Foreach ($GPO in $GPOimport) {
         'Guid'  = $($GPO.Name)
         'Name' = $(([XML](Get-Content -Path "$($GPO.FullName)\backup.xml")).GroupPolicyBackupScheme.GroupPolicyObject.GroupPolicyCoreSettings.DisplayName.InnerText) -replace("Domain",$GPOPrefix)
     }
+    Write-Output "Main : Create GPO $($GPOProperty.Name)"
 
     # Change scheduled task prior to import.
     If (Test-Path -Path "$($GPO.FullName)\DomainSysvol\GPO\Machine\Preferences\ScheduledTasks") {
@@ -414,8 +421,8 @@ Foreach ($GPO in $GPOimport) {
         }
         if (Test-Path $NewGPOPath) {
             Copy-Item -Path "$PSScriptRoot\GPO\Policy Dependencies\Manage-Laps-Version.ps1" -Destination $NewGPOPath
-            Copy-Item -Path "$($env:windir)\temp\LAPS.x64.msi" -Destination $NewGPOPath
-            Copy-Item -Path "$($env:windir)\temp\LAPS.x86.msi" -Destination $NewGPOPath
+            Copy-Item -Path "$LapsFiles\LAPS.x64.msi" -Destination $NewGPOPath
+            Copy-Item -Path "$LapsFiles\LAPS.x86.msi" -Destination $NewGPOPath
         }
 
     } else {
@@ -434,7 +441,7 @@ Foreach ($GPO in $GPOimport) {
 # --------------------------------------------------------------------------------
 #
 # --------------------------------------------------------------------------------
-Write-Output "Domain is now prepared to Support Legacy and Windows LAPS"
+Write-Output "Main : Domain is now prepared to Support Legacy and Windows LAPS"
 
 
 # --------------------------------------------------------------------------------
@@ -453,14 +460,19 @@ $Cleanup = $host.ui.PromptForChoice($title, $message, $options, 0)
 # --------------------------------------------------------------------------------
 if ($Cleanup -eq 0) {
     Write-Host "Cleanup" -ForegroundColor Red
-    Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/x {97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28} /qn /promptrestart" -Wait
-    if (!($LAPSFiles)) {
-        if (Test-Path -Path "$($env:windir)\temp\LAPS.x64.msi") {
-            Remove-Item -Path "$($env:windir)\temp\LAPS.x64.msi" -Force
-        }
-        if (Test-Path -Path "$($env:windir)\temp\LAPS.x86.msi") {
-            Remove-Item -Path "$($env:windir)\temp\LAPS.x86.msi" -Force
-        }
+#    Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/x {97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28} /qn /promptrestart" -Wait
+
+    if (Test-Path -Path "$PSScriptRoot\GPO.zip") {
+        Remove-Item -Path "$PSScriptRoot\GPO.zip"
+    }
+    if (Test-Path -Path "$PSScriptRoot\GPO") {
+        Remove-Item -Path "$PSScriptRoot\GPO" -Recurse -Force
+    }
+    if (Test-Path -Path "$LapsFiles\LAPS.x64.msi") {
+        Remove-Item -Path "$LapsFiles\LAPS.x64.msi" -Force
+    }
+    if (Test-Path -Path "$LapsFiles\LAPS.x86.msi") {
+        Remove-Item -Path "$LapsFiles\LAPS.x86.msi" -Force
     }
     Write-Output "Cleanup done";
 }
