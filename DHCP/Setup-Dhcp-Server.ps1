@@ -3,13 +3,16 @@
     Install required features for DHCP services and Restore scopes and leases, to latest backup file found on the supplied Path
 
     .PARAMETER Path 
-    Specifies where the backup file will be retrived.
-    This can be local path or a UNC path.
+    Specifies where the backup file will be retrieved.
+    This can be a local path or a UNC path.
     
     .EXAMPLE
-    .\Setup-Dhcp-Server.ps1 -Path "\\FILE01\Backup\DHCP"
+    .\Restore-Dhcp-Server.ps1 -Path "\\FILE01\Backup\DHCP"
 #>
-
+[CmdletBinding()]
+Param(
+  [Parameter(ValueFromPipelineByPropertyName=$true,Position=0)][string]$Path
+)
 
 #
 # Install Required Features
