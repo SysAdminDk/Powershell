@@ -1,0 +1,1 @@
+To make PingCacle happy about the MSFT baseline Domain Audit, this script finds and updates the policy
