@@ -1,0 +1,13 @@
+name: ZIP GPO content
+on: push
+
+jobs:
+  zip-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: vimtor/action-zip@v1
+        with:
+          files: LAPS/GPO
+          recursive: true
+          dest: LAPS/__GPO.zip
