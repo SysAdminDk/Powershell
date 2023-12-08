@@ -52,8 +52,8 @@
 
 [CmdletBinding()]
 Param(
-  [Parameter(ValueFromPipelineByPropertyName=$true,Position=0)][string]$GPOPrefix = "Domain",
-  [Parameter(ValueFromPipelineByPropertyName=$true,Position=0)][string]$LAPSFiles = ""
+  [Parameter(ValueFromPipelineByPropertyName=$true,Position=0)][string]$GPOPrefix = "LAPS",
+  [Parameter(ValueFromPipelineByPropertyName=$true,Position=0)][string]$LAPSFiles = $PSScriptRoot
 )
 
 
@@ -62,6 +62,8 @@ Param(
 ##################################################################################
 
 clear
+$CurrentColor = $host.UI.RawUI.ForegroundColor
+$host.UI.RawUI.ForegroundColor = "red"
 Write-Output "*******************************************************************************************************************"
 Write-Output ""
 Write-Output "DISCLAIMER: "
@@ -85,6 +87,7 @@ Write-Output "Take appropriate precautions and ensure you have a backup of your 
 Write-Output ""
 Write-Output ""
 Write-Output "*******************************************************************************************************************"
+$host.UI.RawUI.ForegroundColor = $CurrentColor
 
 $title = "Update Active Directory"
 $message = "Do you want to run this script and prepare you domain for LAPS ?"
@@ -139,25 +142,22 @@ if (!(Test-Path -Path "$PSScriptRoot\GPO\Policy Dependencies\Manage-Laps-Version
 # Read Registry for Installed Windows version
 # --------------------------------------------------------------------------------
 Write-Output "Prerequisites : Get Windows version and Architecture"
-$WindowsVersion = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+$WindowsVersion = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion" | Select-Object ProductName, CurrentBuild, UBR
 
 
 # --------------------------------------------------------------------------------
 # Check for Windows version
 # --------------------------------------------------------------------------------
 Write-Output "Prerequisites : Detect which version of LAPS current server can support"
-if ($WindowsVersion.CurrentMajorVersionNumber -ne "10") {
-    throw "Not running on a supported Windows version, unable to continue"
+if ( ($WindowsVersion.CurrentMajorVersionNumber -ne "10") -and ($WindowsVersion.ProductName -notlike "*Server*") ) {
+    throw "Not running on a supported Windows Server version, unable to continue"
 } else {
 
-    Switch ($($WindowsVersion.CurrentBuild)) {
-        "17763" { if ($($WindowsVersion.UBR) -gt "4252") { $Laps = "Windows" } }
-        "19042" { if ($($WindowsVersion.UBR) -gt "2846") { $Laps = "Windows" } }
-        "19044" { if ($($WindowsVersion.UBR) -gt "2846") { $Laps = "Windows" } }
-        "19045" { if ($($WindowsVersion.UBR) -gt "2846") { $Laps = "Windows" } }
-        "20348" { if ($($WindowsVersion.UBR) -gt "1668") { $Laps = "Windows" } }
-        "22000" { if ($($WindowsVersion.UBR) -gt "1817") { $Laps = "Windows" } }
-        "22621" { if ($($WindowsVersion.UBR) -gt "1555") { $Laps = "Windows" } }
+    Switch ($WindowsVersion) {
+        {($_.CurrentBuild -eq 17763) -and ($_.UBR -ge 4252)} { $Laps = "Windows" }
+        {($_.CurrentBuild -eq 20348) -and ($_.UBR -ge 1668)} { $Laps = "Windows" }
+        {($_.CurrentBuild -gt 20348)                       } { $Laps = "Windows" }
+
         default { $Laps = "Legacy" }
     }
 }
@@ -167,7 +167,7 @@ if ($WindowsVersion.CurrentMajorVersionNumber -ne "10") {
 # Quit if April patch not installed or running on x86.
 # --------------------------------------------------------------------------------
 if ( ($Laps -eq "Legacy") -AND ($($env:PROCESSOR_ARCHITECTURE) -ne "AMD64") ) {
-    Throw "Windows LAPS not installed and supported, unable to continue"
+    Throw "Missing KB5025230 and Windows LAPS supported, unable to continue"
 }
 
 
@@ -227,30 +227,19 @@ If ($CurrentDomain.DomainMode -ne "Windows2016Domain") {
 # --------------------------------------------------------------------------------
 # Download Legacy LAPS installation files.
 # --------------------------------------------------------------------------------
-if ($LAPSFiles) {
-    Write-Output "Main : Using supplied files : $LAPSFiles"
-    if (!(Test-Path -Path "$LAPSFiles\LAPS.x64.msi")) {
-        Throw "Missing the LAPS.x64.msi, unable to continue"
+Write-Output "Main : Download LAPS install files"
+if (!(Test-Path -Path "$LapsFiles\LAPS.x64.msi")) {
+    try {
+        Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x64.msi" -OutFile "$LapsFiles\LAPS.x64.msi"
+    } catch {
+        Throw "Failed to download the LAPS.x64.msi, unable to continue"
     }
-    if (!(Test-Path -Path "$LAPSFiles\LAPS.x64.msi")) {
-        Write-Warning "Main : Missing the LAPS.x86.msi, please copy it to sysvol if there is x86 machines in the Company where you need to support Legacy LAPS"
-    }
-} else {
-    Write-Output "Main : Download LAPS install files"
-    $LapsFiles = "$($env:windir)\temp"
-    if (!(Test-Path -Path "$LapsFiles\LAPS.x64.msi")) {
-        try {
-            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x64.msi" -OutFile "$LapsFiles\LAPS.x64.msi"
-        } catch {
-            Throw "Failed to download the LAPS.x64.msi, unable to continue"
-        }
-    }
-    if (!(Test-Path -Path "$LapsFiles\LAPS.x86.msi")) {
-        try {
-            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x86.msi" -OutFile "$LapsFiles\LAPS.x86.msi"
-        } catch {
-            Write-Warning "Main : Failed to download the LAPS.x86.msi, please copy it to sysvol if there is x86 machines in the Company where you need to support Legacy LAPS"
-        }
+}
+if (!(Test-Path -Path "$LapsFiles\LAPS.x86.msi")) {
+    try {
+        Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/7/A/C7AAD914-A8A6-4904-88A1-29E657445D03/LAPS.x86.msi" -OutFile "$LapsFiles\LAPS.x86.msi"
+    } catch {
+        Write-Warning "Main : Failed to download the LAPS.x86.msi, please copy it to sysvol if there is x86 machines in the Company where you need to support Legacy LAPS"
     }
 }
 
@@ -261,6 +250,9 @@ if ($LAPSFiles) {
 $LegacyLAPS = Test-Path -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28}"
 if (!($LegacyLAPS)) {
     Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/i `"$LapsFiles\LAPS.x64.msi`" ADDLOCAL=Management.PS,Management.ADMX ALLUSERS=1 /qn /quiet" -Wait
+
+    # Make sure we wait for installation
+    Start-Sleep -Seconds 5
 }
 
 
@@ -439,7 +431,7 @@ Foreach ($GPO in $GPOimport) {
 
 
 # --------------------------------------------------------------------------------
-#
+# Script Done
 # --------------------------------------------------------------------------------
 Write-Output "Main : Domain is now prepared to Support Legacy and Windows LAPS"
 

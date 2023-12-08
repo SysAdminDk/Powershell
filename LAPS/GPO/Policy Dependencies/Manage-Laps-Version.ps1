@@ -28,20 +28,23 @@
 # --------------------------------------------------------------------------------
 # Read registry keys for Installed Windows version
 # --------------------------------------------------------------------------------
-$Registry_Windows_Version = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+$WindowsVersion = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion" | Select-Object ProductName, CurrentBuild, UBR
 
 
 # --------------------------------------------------------------------------------
 # Windows LAPS Supported Versions, rest is Legacy LAPS
 # --------------------------------------------------------------------------------
-Switch ($($Registry_Windows_Version.CurrentBuild)) {
-    "17763" { if ($($Registry_Windows_Version.UBR) -gt "4252") { $Laps = "Windows" } }
-    "19042" { if ($($Registry_Windows_Version.UBR) -gt "2846") { $Laps = "Windows" } }
-    "19044" { if ($($Registry_Windows_Version.UBR) -gt "2846") { $Laps = "Windows" } }
-    "19045" { if ($($Registry_Windows_Version.UBR) -gt "2846") { $Laps = "Windows" } }
-    "20348" { if ($($Registry_Windows_Version.UBR) -gt "1668") { $Laps = "Windows" } }
-    "22000" { if ($($Registry_Windows_Version.UBR) -gt "1817") { $Laps = "Windows" } }
-    "22621" { if ($($Registry_Windows_Version.UBR) -gt "1555") { $Laps = "Windows" } }
+Switch ($WindowsVersion) {
+
+    {($_.ProductName -like '*Server*') -and ($_.CurrentBuild -eq 17763) -and ($_.UBR -ge 4252)} { $Laps = "Windows" }
+    {($_.ProductName -like '*Server*') -and ($_.CurrentBuild -eq 20348) -and ($_.UBR -ge 1668)} { $Laps = "Windows" }
+    {($_.ProductName -like '*Server*') -and ($_.CurrentBuild -gt 20348)}                        { $Laps = "Windows" }
+    {($_.CurrentBuild -eq 19042) -and ($_.UBR -ge 2846)}                                        { $Laps = "Windows" }
+    {($_.CurrentBuild -ge 19044) -and ($_.UBR -ge 2846)}                                        { $Laps = "Windows" }
+    {($_.CurrentBuild -eq 22000) -and ($_.UBR -ge 1817)}                                        { $Laps = "Windows" }
+    {($_.CurrentBuild -eq 22621) -and ($_.UBR -ge 1555)}                                        { $Laps = "Windows" }
+    {($_.CurrentBuild -gt 22621)} {$Result = $true}
+
     default { $Laps = "Legacy" }
 }
 
