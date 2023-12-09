@@ -45,7 +45,6 @@
     Setup-ActiveDirectroy-Laps.ps1 -GPOPrefix "MyDomain"
     Setup-ActiveDirectroy-Laps.ps1 -GPOPrefix "MyDomain" -LAPSFiles "C:\_Install\LAPS"
 
-
 #>
 #requires -RunAsAdministrator
 #requires -Modules ActiveDirectory, GroupPolicy
@@ -61,7 +60,7 @@ Param(
 # DISCLAIMER [ Start ]
 ##################################################################################
 
-clear
+Clear-Host
 $CurrentColor = $host.UI.RawUI.ForegroundColor
 $host.UI.RawUI.ForegroundColor = "red"
 Write-Output "*******************************************************************************************************************"
@@ -99,7 +98,7 @@ if (($host.ui.PromptForChoice($title, $message, $options, 0)) -eq 1) {
     Write-Output ""
     break
 } else {
-    Clear
+    Clear-Host
     Write-Output "Verifying Prerequisites"
 }
 
@@ -108,18 +107,19 @@ if (($host.ui.PromptForChoice($title, $message, $options, 0)) -eq 1) {
 ##################################################################################
 
 
-
 ##################################################################################
 # Prerequisites check [ Start ]
 ##################################################################################
-
 
 # --------------------------------------------------------------------------------
 # Check the GPO prefix
 # --------------------------------------------------------------------------------
 Write-Output "Prerequisites : Verify selected GPO prifix is valid"
-if ($GPOPrefix -Notmatch "^[a-zA-Z]+$") {
+if ($GPOPrefix -Notmatch "^[a-zA-Z]+$") { # Only allow letters
     throw "The GPO name prefix contains invalid characters, unable to continue"
+}
+else {
+    Write-host "Prerequisites : GPO prefix is valid, will continue"
 }
 
 
@@ -152,12 +152,13 @@ Write-Output "Prerequisites : Detect which version of LAPS current server can su
 if ( ($WindowsVersion.CurrentMajorVersionNumber -ne "10") -and ($WindowsVersion.ProductName -notlike "*Server*") ) {
     throw "Not running on a supported Windows Server version, unable to continue"
 } else {
-
+    # Check if April patch is installed (KB5025230) and if so, we can support Windows LAPS as well.
     Switch ($WindowsVersion) {
         {($_.CurrentBuild -eq 17763) -and ($_.UBR -ge 4252)} { $Laps = "Windows" }
         {($_.CurrentBuild -eq 20348) -and ($_.UBR -ge 1668)} { $Laps = "Windows" }
         {($_.CurrentBuild -gt 20348)                       } { $Laps = "Windows" }
 
+        # Default to Legacy LAPS if April patch is not installed.
         default { $Laps = "Legacy" }
     }
 }
@@ -176,7 +177,7 @@ if ( ($Laps -eq "Legacy") -AND ($($env:PROCESSOR_ARCHITECTURE) -ne "AMD64") ) {
 # --------------------------------------------------------------------------------
 Write-Output "Prerequisites : Connect to PDC, and setting default server for *AD* commands"
 $CurrentDomain = Get-ADDomain
-if ($($CurrentDomain.PDCEmulator) -eq $null) {
+if ($null -eq $($CurrentDomain.PDCEmulator)) {
     throw "Failed to connect to Active Directory, unable to continue"
 } else {
     $PSDefaultParameterValues = @{
@@ -197,11 +198,11 @@ Catch {
     throw "Script is running in local user context, unable to continue"
 }
 
-if (!(Get-ADGroupMember -Identity "Enterprise Admins" | Where {$_.distinguishedName -eq $ADUser.DistinguishedName})) { 
+if (!(Get-ADGroupMember -Identity "Enterprise Admins" | Where-Object {$_.distinguishedName -eq $ADUser.DistinguishedName})) { 
     throw "User is NOT a member of Enterprise Admins, unable to continue"
 }
 
-if (!(Get-ADGroupMember -Identity "Schema Admins" | Where {$_.distinguishedName -eq $ADUser.DistinguishedName})) { 
+if (!(Get-ADGroupMember -Identity "Schema Admins" | Where-Object {$_.distinguishedName -eq $ADUser.DistinguishedName})) { 
     throw "User is NOT a member of Schema Admins, unable to continue"
 }
 
@@ -317,7 +318,7 @@ if (!(Test-Path "\\$($CurrentDomain.DNSRoot)\SYSVOL\$($CurrentDomain.DNSRoot)\Po
 # --------------------------------------------------------------------------------
 Try {
     Write-Verbose "Main : Check Legacy LAPS schema properties"
-    $msmcsadmpwd = Get-AdObject -Identity "CN=ms-mcs-admpwd,CN=Schema,$($CurrentDomain.SubordinateReferences | Where {$_ -like '*Config*'})"
+    Get-AdObject -Identity "CN=ms-mcs-admpwd,CN=Schema,$($CurrentDomain.SubordinateReferences | Where-Object {$_ -like '*Config*'})"
 } Catch {
     Write-Verbose "Main : Updating Schema to suport Legacy LAPS"
     Update-AdmPwdADSchema
@@ -329,7 +330,7 @@ Try {
 # --------------------------------------------------------------------------------
 Try {
     Write-Verbose "Main : Check Windows LAPS schema properties"
-    $msLAPSPassword = Get-AdObject -Identity "CN=ms-LAPS-Password,CN=Schema,$($CurrentDomain.SubordinateReferences | Where {$_ -like '*Config*'})"
+    Get-AdObject -Identity "CN=ms-LAPS-Password,CN=Schema,$($CurrentDomain.SubordinateReferences | Where-Object {$_ -like '*Config*'})"
 } Catch {
     Write-Verbose "Main : Updating Schema to suport Windows LAPS"
     Update-LapsADSchema -Confirm:$false
@@ -352,6 +353,7 @@ foreach ($Line in $WMIFilters) {
     $Name = "$GPOPrefix - $($($Line -Split("; "))[0])"
     $Query = $($Line -Split("; "))[1]
 
+    # Create a new GUID
     $NewWMIGUID = [string]"{" + ([System.Guid]::NewGuid()) + "}"
 
     $Attr = @{
@@ -377,7 +379,7 @@ foreach ($Line in $WMIFilters) {
 # --------------------------------------------------------------------------------
 # Create / Import GroupPolicy (Update scheduled task, and copy required LAPS files)
 # --------------------------------------------------------------------------------
-$GPOImport = Get-ChildItem -Path "$PSScriptRoot\GPO" -Recurse -Depth 1 | WHere {$_.FullName -Like "*{*}*"}
+$GPOImport = Get-ChildItem -Path "$PSScriptRoot\GPO" -Recurse -Depth 1 | Where-Object {$_.FullName -Like "*{*}*"}
 Foreach ($GPO in $GPOimport) {
     $GPOProperty = New-Object -Type PSObject -Property @{
         'Guid'  = $($GPO.Name)
@@ -398,7 +400,7 @@ Foreach ($GPO in $GPOimport) {
         # Create empty GPO (need the ID for the Path)
         # --
         $NewGPO = Get-GPO -Name $($GPOProperty.Name) -ErrorAction SilentlyContinue
-        if ($NewGPO -eq $null) {
+        if ($null -eq $NewGPO) {
              $NewGPO = New-GPO -Name $($GPOProperty.Name)
         }
         $NewGPOPath = "\\$($CurrentDomain.DNSRoot)\SYSVOL\$($CurrentDomain.DNSRoot)\Policies\{$($NewGPO.ID)}\Machine\Scripts\Startup"
@@ -420,9 +422,9 @@ Foreach ($GPO in $GPOimport) {
     } else {
         Import-GPO -BackupId $GPOProperty.Guid -Path $(Split-Path $($GPO.FullName) -Parent) -TargetName $($GPOProperty.Name) -CreateIfNeeded | Out-Null
 
-        $WMIFilter = $(New-Object Microsoft.GroupPolicy.GPDomain).SearchWmiFilters($(New-Object Microsoft.GroupPolicy.GPSearchCriteria)) | Where {$_.Name -like "$GPOPrefix - *$(($($GPOProperty.Name) -split(" "))[2])*"}
+        $WMIFilter = $(New-Object Microsoft.GroupPolicy.GPDomain).SearchWmiFilters($(New-Object Microsoft.GroupPolicy.GPSearchCriteria)) | Where-Object {$_.Name -like "$GPOPrefix - *$(($($GPOProperty.Name) -split(" "))[2])*"}
 
-        if (($WMIFilter).Name -ne $null) {
+        if ($null -ne ($WMIFilter).Name) {
             $FilterGPO = Get-GPO -Name $($GPOProperty.Name) -ErrorAction SilentlyContinue
             $FilterGPO.WmiFilter = $WMIFilter
         }
@@ -469,5 +471,6 @@ if ($Cleanup -eq 0) {
     Write-Output "Cleanup done";
 }
 
+# Exit script with a pause to allow the user to read the output before closing the window
 Write-Output 'Press any key to continue...';
 $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
