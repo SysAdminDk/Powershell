@@ -26,13 +26,14 @@
      Needs Enterprise and Schema Admins, please remember to remove the membership again   
 
     .LINK
-    https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-overview
-    https://www.microsoft.com/en-us/download/details.aspx?id=46899
+     https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-overview
+     https://www.microsoft.com/en-us/download/details.aspx?id=46899
 
 
     .PARAMETER GPOPrefix 
      Defines the prefix of the GPO's and WMI filters that will be created.
      Defaults to Domain
+
 
     .PARAMETER LAPSFiles
      If the server where the script is executed, the Legacy LAPS file(s) need to be provided at the path specified.
@@ -42,8 +43,8 @@
 
 
     .EXAMPLE
-    Setup-ActiveDirectroy-Laps.ps1 -GPOPrefix "MyDomain"
-    Setup-ActiveDirectroy-Laps.ps1 -GPOPrefix "MyDomain" -LAPSFiles "C:\_Install\LAPS"
+     Setup-ActiveDirectroy-Laps.ps1 -GPOPrefix "MyDomain"
+     Setup-ActiveDirectroy-Laps.ps1 -GPOPrefix "MyDomain" -LAPSFiles "C:\_Install\LAPS"
 
 #>
 #requires -RunAsAdministrator
@@ -52,7 +53,7 @@
 [CmdletBinding()]
 Param(
   [Parameter(ValueFromPipelineByPropertyName=$true,Position=0)][string]$GPOPrefix = "LAPS",
-  [Parameter(ValueFromPipelineByPropertyName=$true,Position=0)][string]$LAPSFiles = $PSScriptRoot
+  [Parameter(ValueFromPipelineByPropertyName=$true)][string]$LAPSFiles = $PSScriptRoot
 )
 
 
@@ -95,7 +96,7 @@ $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", "Jus
 $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
 
 if (($host.ui.PromptForChoice($title, $message, $options, 0)) -eq 1) {
-    Write-Output ""
+    Write-Output "Quit"
     break
 } else {
     Clear-Host
@@ -119,7 +120,7 @@ if ($GPOPrefix -Notmatch "^[a-zA-Z]+$") { # Only allow letters
     throw "The GPO name prefix contains invalid characters, unable to continue"
 }
 else {
-    Write-host "Prerequisites : GPO prefix is valid, will continue"
+    Write-Output "Prerequisites : GPO prefix is valid, will continue"
 }
 
 
@@ -152,22 +153,27 @@ Write-Output "Prerequisites : Detect which version of LAPS current server can su
 if ( ($WindowsVersion.CurrentMajorVersionNumber -ne "10") -and ($WindowsVersion.ProductName -notlike "*Server*") ) {
     throw "Not running on a supported Windows Server version, unable to continue"
 } else {
-    # Check if April patch is installed (KB5025230) and if so, we can support Windows LAPS as well.
+    # Ensure April patch is installed (KB5025230).
     Switch ($WindowsVersion) {
         {($_.CurrentBuild -eq 17763) -and ($_.UBR -ge 4252)} { $Laps = "Windows" }
         {($_.CurrentBuild -eq 20348) -and ($_.UBR -ge 1668)} { $Laps = "Windows" }
         {($_.CurrentBuild -gt 20348)                       } { $Laps = "Windows" }
 
-        # Default to Legacy LAPS if April patch is not installed.
-        default { $Laps = "Legacy" }
+        default {
+            # --
+            # Quit if April patch not installed (KB5025230)
+            # --
+            Throw "Missing KB5025230 and Windows LAPS unsupported, unable to continue"
+            break
+        }
     }
 }
 
 
 # --------------------------------------------------------------------------------
-# Quit if April patch not installed or running on x86.
+#  Quit if running on x86.
 # --------------------------------------------------------------------------------
-if ( ($Laps -eq "Legacy") -AND ($($env:PROCESSOR_ARCHITECTURE) -ne "AMD64") ) {
+if ($($env:PROCESSOR_ARCHITECTURE) -ne "AMD64") {
     Throw "Missing KB5025230 and Windows LAPS supported, unable to continue"
 }
 
@@ -444,17 +450,16 @@ Write-Output "Main : Domain is now prepared to Support Legacy and Windows LAPS"
 $title = "Delete Files"
 $message = "Do you want to cleanup the downloaded files ?"
 $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", "Do cleanup."
-$no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", "Just quit"
+$no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", "Quit"
 $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
-$Cleanup = $host.ui.PromptForChoice($title, $message, $options, 0)
 
 
 # --------------------------------------------------------------------------------
 # Cleanup and Remove Legacy LAPS
 # --------------------------------------------------------------------------------
-if ($Cleanup -eq 0) {
-    Write-Host "Cleanup" -ForegroundColor Red
-#    Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/x {97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28} /qn /promptrestart" -Wait
+if (($host.ui.PromptForChoice($title, $message, $options, 0)) -eq 0) {
+    Write-Output "Cleanup"
+    Start-Process -FilePath "C:\Windows\System32\MsiExec.exe" -ArgumentList "/x {97E2CA7B-B657-4FF7-A6DB-30ECC73E1E28} /qn /promptrestart" -Wait
 
     if (Test-Path -Path "$PSScriptRoot\GPO.zip") {
         Remove-Item -Path "$PSScriptRoot\GPO.zip"
