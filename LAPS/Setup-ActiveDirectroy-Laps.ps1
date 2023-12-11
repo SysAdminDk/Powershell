@@ -324,7 +324,7 @@ if (!(Test-Path "\\$($CurrentDomain.DNSRoot)\SYSVOL\$($CurrentDomain.DNSRoot)\Po
 # --------------------------------------------------------------------------------
 Try {
     Write-Verbose "Main : Check Legacy LAPS schema properties"
-    Get-AdObject -Identity "CN=ms-mcs-admpwd,CN=Schema,$($CurrentDomain.SubordinateReferences | Where-Object {$_ -like '*Config*'})"
+    $Null = Get-AdObject -Identity "CN=ms-mcs-admpwd,CN=Schema,$($CurrentDomain.SubordinateReferences | Where-Object {$_ -like '*Config*'})"
 } Catch {
     Write-Verbose "Main : Updating Schema to suport Legacy LAPS"
     Update-AdmPwdADSchema
@@ -336,7 +336,7 @@ Try {
 # --------------------------------------------------------------------------------
 Try {
     Write-Verbose "Main : Check Windows LAPS schema properties"
-    Get-AdObject -Identity "CN=ms-LAPS-Password,CN=Schema,$($CurrentDomain.SubordinateReferences | Where-Object {$_ -like '*Config*'})"
+    $Null = Get-AdObject -Identity "CN=ms-LAPS-Password,CN=Schema,$($CurrentDomain.SubordinateReferences | Where-Object {$_ -like '*Config*'})" 
 } Catch {
     Write-Verbose "Main : Updating Schema to suport Windows LAPS"
     Update-LapsADSchema -Confirm:$false
