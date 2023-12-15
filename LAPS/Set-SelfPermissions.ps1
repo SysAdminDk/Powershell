@@ -1,6 +1,6 @@
 <#
 
- Search Current Domain for all Computers, extract OUs names and selct the unique ones
+ Search Current Domain for all Computers, extract OUs names and select unique OUs
  Select the OUs where computers needs permission to write the Windows AND Legacy LAPS password
 
 #>
