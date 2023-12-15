@@ -16,9 +16,9 @@ $AllComputers = (Get-ADComputer -Filter * | Where {$_.DistinguishedName -notlike
 # Remove Computer Name from DistinguishedName and select unique OUs
 # - Output to GridView for selection of OUs where the permissions need to be applied.
 # --
-$OUsUnique = $AllComputers | Select-Object @{l='DistinguishedName';e={$_.DistinguishedName -replace "^CN=.+?(?<!\\),"}} -Unique
-$OUsUnique | Out-GridView -OutputMode Multiple | % {
-    Write-Output "Setting LAPS Self permissions on `"$($_.DistinguishedName)`""
-    Set-LapsADComputerSelfPermission -Identity $_.DistinguishedName | Out-Null
-    Set-AdmPwdComputerSelfPermission -OrgUnit $_.DistinguishedName | Out-Null
+$OUsUnique = $AllComputers | Select-Object @{l='DN';e={$_.DistinguishedName -replace "^CN=.+?(?<!\\),"}} -Unique
+$OUsUnique | Out-GridView -Title "Select OUs" -OutputMode Multiple | % {
+    Write-Output "Setting LAPS Self permissions on `"$($_.DN)`""
+    Set-LapsADComputerSelfPermission -Identity $_.DN | Out-Null
+    Set-AdmPwdComputerSelfPermission -OrgUnit $_.DN | Out-Null
 }
