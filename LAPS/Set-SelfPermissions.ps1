@@ -6,7 +6,7 @@
 #>
 
 # --
-# Get all computer objects from domain.
+# Get all Computers from domain.
 # - Exclude the Domain Controllers OU and the Computers container.
 # --
 $AllComputers = (Get-ADComputer -Filter * | Where {$_.DistinguishedName -notlike "*Computers*" -AND $_.DistinguishedName -notlike "*Domain Controllers*"})
