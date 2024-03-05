@@ -5,6 +5,7 @@
 
 #>
 
+
 # --
 # Get all Computers from domain.
 # - Exclude the Domain Controllers OU and the Computers container.
@@ -22,3 +23,29 @@ $OUsUnique | Out-GridView -Title "Select OUs" -OutputMode Multiple | % {
     Set-LapsADComputerSelfPermission -Identity $_.DN | Out-Null
     Set-AdmPwdComputerSelfPermission -OrgUnit $_.DN | Out-Null
 }
+
+
+# --
+# Alternative
+# --
+
+
+# --
+# Find all OU's where the LAPS policy is linked, and set required SELF permissions
+# --
+Get-GPO -All | Where {$_.DisplayName -like '*LAPS*'} | Foreach {
+    $GPOReport = [XML](Get-GPOReport -Guid $_.Id -ReportType Xml)
+    $GPOReport.GPO.LinksTo.SOMPath | Foreach {
+        $Filter = $_
+        $OuName = (Get-ADObject -Filter * -Properties CanonicalName | Where {$_.CanonicalName -eq $Filter}).DistinguishedName
+        Set-LapsADComputerSelfPermission -Identity $OuName
+        Set-AdmPwdComputerSelfPermission -OrgUnit $OuName
+    }
+}
+
+
+
+
+# --
+# Allow LAPS managers password lookup
+# --
