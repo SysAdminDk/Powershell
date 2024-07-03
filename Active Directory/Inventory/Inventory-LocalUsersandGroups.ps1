@@ -4,10 +4,10 @@
 
 #>
 
-# List all Windows Servers in the domain, excluding Domain Controllers (There shouldn't be any)
+# List all Windows Servers in the domain, excluding Domain Controllers
 # ----------------------------------------------------------------------------------------------------
 $AllServers = Get-ADComputer -Filter "operatingSystem -like 'Windows Server*'"
-$AllServers = $AllServers | Where {$_.DistinguishedName -notlike "*Domain*"}
+$AllServers = $AllServers | Where {$_.DistinguishedName -Notlike "*Domain Controllers*"}
 
 
 $Inventory = @()
@@ -49,6 +49,9 @@ Foreach ($Server in $AllServers) {
                     $Groups = New-Object -TypeName psobject
                     $Groups | Add-Member -MemberType NoteProperty -Name "UserName" -Value $Null
                     $Groups | Add-Member -MemberType NoteProperty -Name "Enabled" -Value $Null
+                    $Groups | Add-Member -MemberType NoteProperty -Name "PasswordExpires" -Value $Null
+                    $Groups | Add-Member -MemberType NoteProperty -Name "PasswordLastSet" -Value $Null
+                    $Groups | Add-Member -MemberType NoteProperty -Name "PasswordRequired" -Value $Null
                     $Groups | Add-Member -MemberType NoteProperty -Name "GroupName" -Value $GroupName
                     $Groups | Add-Member -MemberType NoteProperty -Name "MemberName" -Value $_.Name
                     $Groups | Add-Member -MemberType NoteProperty -Name "Source" -Value $_.PrincipalSource
