@@ -4,12 +4,15 @@
 
 #>
 
+
 # List all Windows Servers in the domain, excluding Domain Controllers
 # ----------------------------------------------------------------------------------------------------
 $AllServers = Get-ADComputer -Filter "operatingSystem -like 'Windows Server*'"
 $AllServers = $AllServers | Where {$_.DistinguishedName -Notlike "*Domain Controllers*"}
 
 
+# Run Inventory
+# ----------------------------------------------------------------------------------------------------
 $Inventory = @()
 Foreach ($Server in $AllServers) {
 
@@ -67,4 +70,8 @@ Foreach ($Server in $AllServers) {
     }
 }
 
-$Inventory | Select-Object PSComputerName, UserName, Enabled, PasswordExpires, PasswordLastSet, PasswordRequired, GroupName, MemberName, Source, Class | Export-Csv -Path "C:\TS-Data\ServerInventory.csv" -NoTypeInformation -Encoding UTF8 -Delimiter ";"
+# Export to CSV
+# ----------------------------------------------------------------------------------------------------
+$Inventory | Select-Object PSComputerName, UserName, Enabled, PasswordExpires, PasswordLastSet, PasswordRequired, GroupName, MemberName, Source, Class | `
+    Export-Csv -Path "C:\TS-Data\ServerInventory.csv" -NoTypeInformation -Encoding UTF8 -Delimiter ";"
+
