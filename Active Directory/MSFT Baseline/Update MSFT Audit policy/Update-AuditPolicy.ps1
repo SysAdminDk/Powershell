@@ -1,7 +1,7 @@
 ﻿# --
 # Find the MSFT*Domain Controller* GPO
 # --
-$GPO = Get-GPO -All | Where {$_.DisplayName -like 'MSFT Windows Server * - Domain Controller'}
+$GPO = Get-GPO -All | Where {$_.DisplayName -like 'MSFT*Windows Server*- Domain Controller'}
 
 $GPO | Foreach {
 
